@@ -12,6 +12,7 @@ export interface Project {
   createdAt: string;
   updatedAt: string;
   files: DataFile[];
+  dashboardData?: DashboardData; // Added for persistence
 }
 
 export interface DataFile {
