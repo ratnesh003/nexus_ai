@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { db } from '../services/mockDb';
 import { Button, Input, Card } from './ui';
+import { ChevronRight } from 'lucide-react';
 
 interface SettingsDialogProps {
     onClose: () => void;
@@ -43,7 +44,7 @@ const SettingsDialog: React.FC<SettingsDialogProps> = ({ onClose }) => {
                         <>
                             <div className="space-y-3 pt-4 border-t">
                                 <h3 className="font-semibold text-accent">MongoDB Data API</h3>
-                                <p className="text-xs text-slate-500">Enable the Data API in MongoDB Atlas > Services > Data API.</p>
+                                <p className="text-xs text-slate-500">Enable the Data API in MongoDB Atlas <ChevronRight/> Services <ChevronRight/> Data API.</p>
                                 <div className="grid grid-cols-2 gap-4">
                                     <div className="col-span-2">
                                         <label className="text-xs font-medium">Data API URL Endpoint</label>
