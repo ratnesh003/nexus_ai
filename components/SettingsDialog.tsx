@@ -53,8 +53,8 @@ const SettingsDialog: React.FC<SettingsDialogProps> = ({ onClose }) => {
               <div className="space-y-3 pt-4 border-t">
                 <h3 className="font-semibold text-accent">MongoDB Data API</h3>
                 <p className="text-xs text-slate-500">
-                  Enable the Data API in MongoDB Atlas <ChevronRight /> Services{" "}
-                  <ChevronRight /> Data API.
+                  Enable the Data API in MongoDB Atlas <ChevronRight className="inline mb-0.5" size={16} /> Services{" "}
+                  <ChevronRight className="inline mb-0.5" size={16} /> Data API.
                 </p>
                 <div className="grid grid-cols-2 gap-4">
                   <div className="col-span-2">

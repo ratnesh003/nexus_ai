@@ -142,11 +142,11 @@ const ChatDataView: React.FC<ChatDataViewProps> = ({ projectId }) => {
                 <Card
                   className={`p-4 ${
                     msg.role === "user"
-                      ? "bg-accent text-white border-accent"
+                      ? "bg-accent text-black border-accent"
                       : "bg-white"
                   }`}
                 >
-                  <p className="text-sm leading-relaxed whitespace-pre-wrap">
+                  <p className="text-sm leading-tight whitespace-pre-wrap">
                     {msg.content}
                   </p>
                 </Card>

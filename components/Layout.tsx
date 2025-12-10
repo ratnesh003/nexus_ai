@@ -3,6 +3,7 @@ import { NavLink, Outlet, useParams, useNavigate } from "react-router-dom";
 import { db } from "../services/mockDb";
 import { Icons, Button } from "./ui";
 import SettingsDialog from "./SettingsDialog";
+import { ChevronLeft } from "lucide-react";
 
 const Layout: React.FC = () => {
   const { projectId } = useParams();
@@ -62,9 +63,9 @@ const Layout: React.FC = () => {
               <Button
                 variant="ghost"
                 onClick={() => navigate("/projects")}
-                className="w-full justify-start text-slate-400 hover:text-white mb-4 pl-0"
+                className="w-full justify-start text-slate-600 hover:bg-slate-400/30 hover:text-white/60 mb-4 pl-0"
               >
-                <span className="mr-2">←</span> Back to Projects
+                <ChevronLeft className="inline -mb-0.5 mr-1" size={16} /> Back to Projects
               </Button>
 
               <div className="px-3 mb-2 text-xs font-semibold uppercase tracking-wider text-slate-500">
@@ -117,7 +118,7 @@ const Layout: React.FC = () => {
         <div className="p-4 border-t border-slate-800 space-y-4">
           <Button
             variant="ghost"
-            className="w-full justify-start text-slate-400 hover:text-white text-xs h-8"
+            className="w-full justify-start text-white/75 hover:bg-slate-400/40 hover:text-white text-xs h-8"
             onClick={() => setShowSettings(true)}
           >
             <svg

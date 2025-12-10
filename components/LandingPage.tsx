@@ -139,7 +139,7 @@ const LandingPage: React.FC = () => {
               Sign In
             </Button>
             <Button
-              className="bg-blue-600 hover:bg-blue-500 text-white border-0"
+              className="bg-blue-600 hover:bg-blue-600/70 text-white border-0"
               onClick={() => navigate("/register")}
             >
               Get Started
@@ -552,7 +552,7 @@ const LandingPage: React.FC = () => {
                 AI.
               </p>
               <Button
-                className="h-12 px-8 text-lg bg-white text-blue-900 hover:bg-blue-50"
+                className="h-12 px-8 text-lg bg-blue-600 text-white hover:bg-blue-600/70"
                 onClick={() => navigate("/register")}
               >
                 Get Started for Free
