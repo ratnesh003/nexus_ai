@@ -1,4 +1,4 @@
-import { Project, DataFile, User, AppConfig } from '../types';
+import { Project, DataFile, User, AppConfig, DashboardData } from '../types';
 
 // STORAGE KEYS
 const STORAGE_KEY_PROJECTS = 'datanexus_projects';
@@ -140,6 +140,36 @@ class DatabaseService {
     return newProject;
   }
 
+  async updateProject(id: string, name: string, description: string): Promise<void> {
+    const project = await this.getProjectById(id);
+    if (!project) return;
+
+    project.name = name;
+    project.description = description;
+    project.updatedAt = new Date().toISOString();
+
+    if (this.config.useRealBackend && this.config.mongoDbApiKey) {
+         await fetch(`${this.config.mongoDbUrl}/action/updateOne`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'api-key': this.config.mongoDbApiKey || '',
+            },
+            body: JSON.stringify({
+                dataSource: this.config.mongoDbCluster,
+                database: this.config.mongoDbDatabase,
+                collection: 'projects',
+                filter: { id: id },
+                update: { $set: { name, description, updatedAt: project.updatedAt } }
+            })
+        });
+    }
+
+    const idx = this.projects.findIndex(p => p.id === id);
+    if (idx !== -1) this.projects[idx] = project;
+    localStorage.setItem(STORAGE_KEY_PROJECTS, JSON.stringify(this.projects));
+  }
+
   async deleteProject(id: string): Promise<void> {
     if (this.config.useRealBackend && this.config.mongoDbApiKey) {
         await fetch(`${this.config.mongoDbUrl}/action/deleteOne`, {
@@ -158,6 +188,35 @@ class DatabaseService {
     }
     this.projects = this.projects.filter(p => p.id !== id);
     localStorage.setItem(STORAGE_KEY_PROJECTS, JSON.stringify(this.projects));
+  }
+
+  async saveDashboardData(projectId: string, dashboardData: DashboardData): Promise<void> {
+      const project = await this.getProjectById(projectId);
+      if (!project) return;
+
+      project.dashboardData = dashboardData;
+      project.updatedAt = new Date().toISOString();
+
+      if (this.config.useRealBackend && this.config.mongoDbApiKey) {
+           await fetch(`${this.config.mongoDbUrl}/action/updateOne`, {
+              method: 'POST',
+              headers: {
+                  'Content-Type': 'application/json',
+                  'api-key': this.config.mongoDbApiKey || '',
+              },
+              body: JSON.stringify({
+                  dataSource: this.config.mongoDbCluster,
+                  database: this.config.mongoDbDatabase,
+                  collection: 'projects',
+                  filter: { id: projectId },
+                  update: { $set: { dashboardData, updatedAt: project.updatedAt } }
+              })
+          });
+      }
+
+      const idx = this.projects.findIndex(p => p.id === projectId);
+      if (idx !== -1) this.projects[idx] = project;
+      localStorage.setItem(STORAGE_KEY_PROJECTS, JSON.stringify(this.projects));
   }
 
   // --- Files & Cloudinary ---

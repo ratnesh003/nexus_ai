@@ -15,30 +15,71 @@ const DashboardView: React.FC<DashboardViewProps> = ({ projectId }) => {
     const [project, setProject] = useState<any>(null);
     const [data, setData] = useState<DashboardData | null>(null);
     const [loading, setLoading] = useState(false);
+    const [appending, setAppending] = useState(false); // State for adding more analysis
     const [activeTab, setActiveTab] = useState('main'); // 'main', 'bar', 'pie', 'line', 'radar', 'radial'
     
     useEffect(() => {
-        db.getProjectById(projectId).then(setProject);
+        loadProjectData();
     }, [projectId]);
 
-    const activeFile = project?.files[0];
-
-    useEffect(() => {
-        if (activeFile) {
-            loadDashboard(activeFile);
+    const loadProjectData = async () => {
+        const p = await db.getProjectById(projectId);
+        setProject(p);
+        
+        // If the project already has dashboard data saved, load it!
+        if (p && p.dashboardData && (p.dashboardData.mainStats.length > 0 || p.dashboardData.charts.length > 0)) {
+            setData(p.dashboardData);
+        } else if (p && p.files.length > 0) {
+            // Initial generation if no data exists
+            generateFreshDashboard(p.files[0]);
         }
-    }, [activeFile]);
+    };
 
-    const loadDashboard = async (file: DataFile) => {
+    const generateFreshDashboard = async (file: DataFile) => {
         setLoading(true);
-        setData(null); // Reset data while loading
         try {
             const dashboardData = await generateDashboardData(file.content);
             setData(dashboardData);
+            await db.saveDashboardData(projectId, dashboardData);
         } catch (e) {
             console.error(e);
         } finally {
             setLoading(false);
+        }
+    };
+
+    const handleRefreshAnalysis = async () => {
+        const activeFile = project?.files[0];
+        if (activeFile) {
+            // This wipes the current data and starts fresh
+            await generateFreshDashboard(activeFile);
+        }
+    };
+
+    const handleAddAnalysis = async () => {
+        const activeFile = project?.files[0];
+        if (!activeFile) return;
+
+        setAppending(true);
+        try {
+            // Generate NEW set of charts
+            const newDashboardData = await generateDashboardData(activeFile.content);
+            
+            // Append to existing state
+            setData(prev => {
+                if (!prev) return newDashboardData;
+                const merged: DashboardData = {
+                    mainStats: [...prev.mainStats, ...newDashboardData.mainStats],
+                    charts: [...prev.charts, ...newDashboardData.charts]
+                };
+                // Persist merged data
+                db.saveDashboardData(projectId, merged);
+                return merged;
+            });
+        } catch (e) {
+            console.error("Failed to append analysis", e);
+        } finally {
+            setAppending(false);
         }
     };
 
@@ -127,8 +168,8 @@ const DashboardView: React.FC<DashboardViewProps> = ({ projectId }) => {
                 <Icons.Chart />
             </div>
             <p className="text-muted-foreground">No dashboard data generated yet.</p>
-            {activeFile ? (
-                <Button onClick={() => loadDashboard(activeFile)} variant="secondary">Retry Generation</Button>
+            {project?.files.length > 0 ? (
+                <Button onClick={handleRefreshAnalysis} variant="secondary">Retry Generation</Button>
             ) : (
                 <p className="text-sm text-slate-400">Upload a CSV file in the Transformation tab to begin.</p>
             )}
@@ -139,16 +180,23 @@ const DashboardView: React.FC<DashboardViewProps> = ({ projectId }) => {
         const allCharts = [...(data.mainStats || []), ...(data.charts || [])];
         
         if (activeTab === 'main') {
-            const mainStats = data.mainStats?.[0]; 
-            const firstBar = allCharts.find(c => c.type.toLowerCase() === 'bar');
-            const firstPie = allCharts.find(c => c.type.toLowerCase() === 'pie');
-            const firstLine = allCharts.find(c => c.type.toLowerCase() === 'line');
-            const firstRadar = allCharts.find(c => c.type.toLowerCase() === 'radar');
-            const firstRadial = allCharts.find(c => c.type.toLowerCase() === 'radial');
+            // Main tab logic: Show first chart of every available type
+            const types = ['bar', 'pie', 'line', 'radar', 'radial'];
+            const distinctCharts = [];
             
-            // Remove duplicates (if mainStats is one of the types)
-            const charts = [mainStats, firstBar, firstPie, firstLine, firstRadar, firstRadial].filter(Boolean) as ChartConfig[];
-            return Array.from(new Set(charts));
+            // Always include the first 'mainStats' item if it exists
+            if (data.mainStats && data.mainStats.length > 0) {
+                distinctCharts.push(data.mainStats[0]);
+            }
+            
+            // Then find the first of each other type from the rest
+            types.forEach(t => {
+                const found = allCharts.find(c => c.type.toLowerCase() === t && c !== data.mainStats[0]);
+                if (found) distinctCharts.push(found);
+            });
+            
+            // Deduplicate just in case
+            return Array.from(new Set(distinctCharts));
         }
         
         return allCharts.filter(c => c.type.toLowerCase() === activeTab);
@@ -176,11 +224,16 @@ const DashboardView: React.FC<DashboardViewProps> = ({ projectId }) => {
                 <div className="mb-6 flex justify-between items-center">
                     <div>
                         <h2 className="text-2xl font-bold text-primary">{activeTab === 'main' ? 'Executive Overview' : `${activeTab.charAt(0).toUpperCase() + activeTab.slice(1)} Analytics`}</h2>
-                        <p className="text-muted-foreground">AI-generated insights for {activeFile?.name}</p>
+                        <p className="text-muted-foreground">AI-generated insights for {project?.files[0]?.name}</p>
                     </div>
-                    <Button variant="ghost" size="sm" onClick={() => activeFile && loadDashboard(activeFile)}>
-                        <Icons.Spinner /> <span className="ml-2">Refresh Analysis</span>
-                    </Button>
+                    <div className="flex gap-2">
+                        <Button variant="secondary" size="sm" onClick={handleAddAnalysis} disabled={appending}>
+                            {appending ? <Icons.Spinner /> : <Icons.Plus />} <span className="ml-2">Add Analysis</span>
+                        </Button>
+                        <Button variant="ghost" size="sm" onClick={handleRefreshAnalysis}>
+                            <Icons.Spinner /> <span className="ml-2">Reset & Refresh</span>
+                        </Button>
+                    </div>
                 </div>
 
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-2 gap-6 pb-10">

@@ -14,21 +14,25 @@ export const transformCsvData = async (
   userPrompt: string
 ): Promise<{ newCsv: string; pythonCode: string }> => {
   
+  // Truncate for the PREVIEW phase to ensure speed
+  const previewContent = csvContent.substring(0, 5000); 
+
   const prompt = `
     You are a Senior Data Engineer. 
-    Input CSV Data:
-    ${csvContent.substring(0, 3000)}... (truncated if too long)
+    Input CSV Data (First 5000 chars preview):
+    ${previewContent}...
     
     User Request: "${userPrompt}"
     
     Task:
-    1. Generate Python Pandas code to perform this transformation.
-    2. Simulate the execution of this code on the provided CSV data and return the RESULTING CSV content.
+    1. Generate Python Pandas code to perform this transformation on the DataFrame 'df'.
+    2. Simulate the execution of this code on the provided preview data.
+    3. Return the resulting CSV content for the preview.
     
     Output Format: JSON
     {
       "pythonCode": "The python code string...",
-      "resultCsv": "The full CSV string after transformation..."
+      "resultCsv": "The preview CSV string after transformation..."
     }
   `;
 
@@ -50,13 +54,54 @@ export const transformCsvData = async (
 
     const result = JSON.parse(response.text || "{}");
     return {
-      newCsv: result.resultCsv || csvContent,
+      newCsv: result.resultCsv || previewContent,
       pythonCode: result.pythonCode || "# No code generated"
     };
   } catch (error) {
     console.error("Gemini Transformation Error:", error);
     throw error;
   }
+};
+
+// NEW FUNCTION: Applies the generated code to the FULL dataset
+export const applyTransformationToFullData = async (
+    fullCsvContent: string,
+    pythonCode: string
+): Promise<string> => {
+    
+    // Warn: If file is massive (>1MB), this might hit output token limits of the LLM.
+    // In a real app, this would run on a Python backend.
+    
+    const prompt = `
+    You are a Code Execution Engine.
+    
+    Input CSV Data (Full Dataset):
+    ${fullCsvContent}
+
+    Python Code to Apply:
+    ${pythonCode}
+
+    Task:
+    1. Act as a Python interpreter.
+    2. Apply the provided Python code to the Input CSV Data.
+    3. Output ONLY the resulting CSV string. Do not output JSON. Do not output markdown. Just the raw CSV text.
+    `;
+
+    try {
+        const response = await ai.models.generateContent({
+            model: MODEL,
+            contents: prompt,
+            config: {
+                // We do NOT use JSON schema here because we want raw CSV output which might be large
+                // and strictly text.
+            }
+        });
+
+        return cleanOutput(response.text || "");
+    } catch (error) {
+        console.error("Full Transformation Error:", error);
+        throw error;
+    }
 };
 
 export const chatWithData = async (
@@ -68,7 +113,7 @@ export const chatWithData = async (
     const context = `
     You are a Data Scientist Assistant.
     Current CSV Data Context:
-    ${csvContent.substring(0, 2000)}...
+    ${csvContent.substring(0, 5000)}...
 
     Task: Answer the user's question about the data.
     Provide a Python Pandas snippet that WOULD solve this query, followed by the plain text answer.
@@ -118,7 +163,7 @@ export const generateDashboardData = async (csvContent: string): Promise<Dashboa
     Analyze the following CSV data and generate a JSON configuration for a dashboard.
     
     CSV Data:
-    ${csvContent.substring(0, 3000)}...
+    ${csvContent.substring(0, 5000)}...
 
     Task:
     1. Create a "mainStats" section with 1 key high-level chart (e.g., total sales over time).
