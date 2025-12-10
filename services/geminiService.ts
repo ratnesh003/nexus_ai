@@ -82,7 +82,10 @@ export const chatWithData = async (
 
     const contents = [
         { role: 'user', parts: [{ text: context }] },
-        ...history.map(h => ({ role: h.role, parts: [{ text: h.content }] })),
+        ...history.map(h => ({ 
+            role: h.role === 'assistant' ? 'model' : 'user', 
+            parts: [{ text: h.content }] 
+        })),
         { role: 'user', parts: [{ text: userMessage }] }
     ];
 
