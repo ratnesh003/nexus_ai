@@ -88,7 +88,7 @@ const ProjectList: React.FC = () => {
                                 </Button>
                              </div>
                              <h3 className="font-semibold text-lg mb-2">{project.name}</h3>
-                             <p className="text-sm text-slate-500 flex-grow">{project.description}</p>
+                             <p className="text-sm text-slate-500 flex-grow line-clamp-6">{project.description}</p>
                              <div className="mt-4 pt-4 border-t border-slate-100 flex justify-between items-center text-xs text-slate-400">
                                 <span>{project.files.length} Files</span>
                                 <span>Updated {new Date(project.updatedAt).toLocaleDateString()}</span>
