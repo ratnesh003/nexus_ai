@@ -1,0 +1,5 @@
+{
+  "name": "DataNexus AI",
+  "description": "An intelligent data analysis platform powered by Gemini. Features project management, natural language ETL transformations, conversational data insights, and automated dashboard generation.",
+  "requestFramePermissions": []
+}
