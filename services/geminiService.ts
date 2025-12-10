@@ -6,18 +6,18 @@ const MODEL = "gemini-2.5-flash";
 
 // Helper to clean CSV string (sometimes LLMs add markdown blocks)
 const cleanOutput = (text: string) => {
-  return text.replace(/```csv/g, '').replace(/```python/g, '').replace(/```json/g, '').replace(/```/g, '').trim();
+    return text.replace(/```csv/g, '').replace(/```python/g, '').replace(/```json/g, '').replace(/```/g, '').trim();
 };
 
 export const transformCsvData = async (
-  csvContent: string, 
-  userPrompt: string
+    csvContent: string,
+    userPrompt: string
 ): Promise<{ newCsv: string; pythonCode: string }> => {
-  
-  // Truncate for the PREVIEW phase to ensure speed
-  const previewContent = csvContent.substring(0, 5000); 
 
-  const prompt = `
+    // Truncate for the PREVIEW phase to ensure speed
+    const previewContent = csvContent.substring(0, 5000);
+
+    const prompt = `
     You are a Senior Data Engineer. 
     Input CSV Data (First 5000 chars preview):
     ${previewContent}...
@@ -36,31 +36,31 @@ export const transformCsvData = async (
     }
   `;
 
-  try {
-    const response = await ai.models.generateContent({
-      model: MODEL,
-      contents: prompt,
-      config: {
-        responseMimeType: "application/json",
-        responseSchema: {
-            type: Type.OBJECT,
-            properties: {
-                pythonCode: { type: Type.STRING },
-                resultCsv: { type: Type.STRING }
+    try {
+        const response = await ai.models.generateContent({
+            model: MODEL,
+            contents: prompt,
+            config: {
+                responseMimeType: "application/json",
+                responseSchema: {
+                    type: Type.OBJECT,
+                    properties: {
+                        pythonCode: { type: Type.STRING },
+                        resultCsv: { type: Type.STRING }
+                    }
+                }
             }
-        }
-      }
-    });
+        });
 
-    const result = JSON.parse(response.text || "{}");
-    return {
-      newCsv: result.resultCsv || previewContent,
-      pythonCode: result.pythonCode || "# No code generated"
-    };
-  } catch (error) {
-    console.error("Gemini Transformation Error:", error);
-    throw error;
-  }
+        const result = JSON.parse(response.text || "{}");
+        return {
+            newCsv: result.resultCsv || previewContent,
+            pythonCode: result.pythonCode || "# No code generated"
+        };
+    } catch (error) {
+        console.error("Gemini Transformation Error:", error);
+        throw error;
+    }
 };
 
 // NEW FUNCTION: Applies the generated code to the FULL dataset
@@ -68,10 +68,10 @@ export const applyTransformationToFullData = async (
     fullCsvContent: string,
     pythonCode: string
 ): Promise<string> => {
-    
+
     // Warn: If file is massive (>1MB), this might hit output token limits of the LLM.
     // In a real app, this would run on a Python backend.
-    
+
     const prompt = `
     You are a Code Execution Engine.
     
@@ -109,7 +109,7 @@ export const chatWithData = async (
     history: { role: string; content: string }[],
     userMessage: string
 ): Promise<{ answer: string; pythonCode: string }> => {
-    
+
     const context = `
     You are a Data Scientist Assistant.
     Current CSV Data Context:
@@ -127,9 +127,9 @@ export const chatWithData = async (
 
     const contents = [
         { role: 'user', parts: [{ text: context }] },
-        ...history.map(h => ({ 
-            role: h.role === 'assistant' ? 'model' : 'user', 
-            parts: [{ text: h.content }] 
+        ...history.map(h => ({
+            role: h.role === 'assistant' ? 'model' : 'user',
+            parts: [{ text: h.content }]
         })),
         { role: 'user', parts: [{ text: userMessage }] }
     ];
@@ -149,7 +149,7 @@ export const chatWithData = async (
                 }
             }
         });
-        
+
         return JSON.parse(response.text || "{}");
     } catch (error) {
         console.error("Chat Error", error);
@@ -184,7 +184,7 @@ export const generateDashboardData = async (csvContent: string): Promise<Dashboa
             contents: prompt,
             config: {
                 responseMimeType: "application/json",
-                 responseSchema: {
+                responseSchema: {
                     type: Type.OBJECT,
                     properties: {
                         mainStats: {
@@ -198,7 +198,7 @@ export const generateDashboardData = async (csvContent: string): Promise<Dashboa
                                     description: { type: Type.STRING },
                                     dataKey: { type: Type.STRING },
                                     categoryKey: { type: Type.STRING },
-                                    data: { 
+                                    data: {
                                         type: Type.ARRAY,
                                         items: { type: Type.OBJECT, properties: { name: { type: Type.STRING }, value: { type: Type.NUMBER } } }
                                     }
@@ -216,7 +216,7 @@ export const generateDashboardData = async (csvContent: string): Promise<Dashboa
                                     description: { type: Type.STRING },
                                     dataKey: { type: Type.STRING },
                                     categoryKey: { type: Type.STRING },
-                                    data: { 
+                                    data: {
                                         type: Type.ARRAY,
                                         items: { type: Type.OBJECT, properties: { name: { type: Type.STRING }, value: { type: Type.NUMBER } } }
                                     }
@@ -224,12 +224,12 @@ export const generateDashboardData = async (csvContent: string): Promise<Dashboa
                             }
                         }
                     }
-                 }
+                }
             }
         });
 
         const result = JSON.parse(response.text || "{}");
-        
+
         // Robust fallback to ensure arrays exist
         return {
             mainStats: Array.isArray(result.mainStats) ? result.mainStats : [],
