@@ -3,6 +3,7 @@ import { NavLink, Outlet, useParams, useNavigate } from 'react-router-dom';
 import { db } from '../services/mockDb';
 import { Icons, Button } from './ui';
 import SettingsDialog from './SettingsDialog';
+import { ChevronLeft } from 'lucide-react';
 
 const Layout: React.FC = () => {
     const { projectId } = useParams();
@@ -41,8 +42,8 @@ const Layout: React.FC = () => {
 
                     {isProjectView && (
                          <>
-                            <Button variant="ghost" onClick={() => navigate('/projects')} className="w-full justify-start text-slate-400 hover:text-white mb-4 pl-0">
-                                <span className="mr-2">←</span> Back to Projects
+                            <Button variant="ghost" onClick={() => navigate('/projects')} className="w-full justify-start text-slate-400 hover:text-white hover:bg-slate-400/40 mb-4 pl-0">
+                                <ChevronLeft className="inline -mb-0.5 mr-1" size={16} /> Back to Projects
                             </Button>
                             
                             <div className="px-3 mb-2 text-xs font-semibold uppercase tracking-wider text-slate-500">Project Tools</div>
@@ -63,7 +64,7 @@ const Layout: React.FC = () => {
                 </div>
 
                 <div className="p-4 border-t border-slate-800 space-y-4">
-                     <Button variant="ghost" className="w-full justify-start text-slate-400 hover:text-white text-xs h-8" onClick={() => setShowSettings(true)}>
+                     <Button variant="ghost" className="w-full justify-start text-white/75 hover:text-white hover:bg-slate-400/40 text-xs h-8" onClick={() => setShowSettings(true)}>
                         <svg className="mr-2 h-4 w-4" xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M12.22 2h-.44a2 2 0 0 0-2 2v.18a2 2 0 0 1-1 1.73l-.43.25a2 2 0 0 1-2 0l-.15-.08a2 2 0 0 0-2.73.73l-.22.38a2 2 0 0 0 .73 2.73l.15.1a2 2 0 0 1 1 1.72v.51a2 2 0 0 1-1 1.74l-.15.09a2 2 0 0 0-.73 2.73l.22.38a2 2 0 0 0 2.73.73l.15-.08a2 2 0 0 1 2 0l.43.25a2 2 0 0 1 1 1.73V20a2 2 0 0 0 2 2h.44a2 2 0 0 0 2-2v-.18a2 2 0 0 1 1-1.73l.43-.25a2 2 0 0 1 2 0l.15.08a2 2 0 0 0 2.73-.73l.22-.39a2 2 0 0 0-.73-2.73l-.15-.09a2 2 0 0 1-1-1.74v-.47a2 2 0 0 1 1-1.74l.15-.09a2 2 0 0 0 .73-2.73l-.22-.39a2 2 0 0 0-2.73-.73l-.15.08a2 2 0 0 1-2 0l-.43-.25a2 2 0 0 1-1-1.73V4a2 2 0 0 0-2-2z"/><circle cx="12" cy="12" r="3"/></svg>
                         Settings & Keys
                     </Button>
