@@ -1,7 +1,9 @@
+
 import React, { useState, useEffect } from 'react';
 import { DataFile, Project } from '../types';
 import { db } from '../services/mockDb';
-import { transformCsvData, applyTransformationToFullData } from '../services/geminiService';
+import { transformCsvData } from '../services/geminiService';
+import { runPythonTransformation } from '../services/pyodideService';
 import { Button, Input, Card, Icons, CodeBlock } from './ui';
 
 interface TransformationViewProps {
@@ -72,11 +74,12 @@ const TransformationView: React.FC<TransformationViewProps> = ({ projectId, file
         if (pendingTransformation) {
             setIsProcessingFull(true);
             try {
-                // Apply the python code to the FULL active file content
-                const fullResult = await applyTransformationToFullData(activeFile.content, pendingTransformation.pythonCode);
+                // Apply the python code to the FULL active file content LOCALLY
+                const fullResult = await runPythonTransformation(activeFile.content, pendingTransformation.pythonCode);
                 contentToDownload = fullResult;
                 fileName = `transformed_${activeFile.name}`;
             } catch (e) {
+                console.error(e);
                 alert("Failed to process full file for download.");
                 setIsProcessingFull(false);
                 return;
@@ -121,8 +124,9 @@ const TransformationView: React.FC<TransformationViewProps> = ({ projectId, file
         setIsProcessingFull(true);
 
         try {
-            // 1. Apply the code to the FULL dataset
-            const fullResultCsv = await applyTransformationToFullData(activeFile.content, pendingTransformation.pythonCode);
+            // 1. Apply the code to the FULL dataset using LOCAL PYTHON (Pyodide)
+            // This is significantly faster than asking the LLM to rewrite the file
+            const fullResultCsv = await runPythonTransformation(activeFile.content, pendingTransformation.pythonCode);
 
             // 2. Save the full result
             await db.updateFileVersion(
@@ -140,7 +144,7 @@ const TransformationView: React.FC<TransformationViewProps> = ({ projectId, file
             setPrompt('');
         } catch (e) {
             console.error(e);
-            alert("Failed to process full dataset and save version");
+            alert("Failed to execute transformation on full dataset. Check console for Python errors.");
         } finally {
             setIsProcessingFull(false);
         }
@@ -177,7 +181,7 @@ const TransformationView: React.FC<TransformationViewProps> = ({ projectId, file
                 </div>
                 <div className="flex items-center gap-2">
                      <Button variant="ghost" onClick={handleDownload} disabled={!activeFile || isProcessingFull} title="Download CSV">
-                        {isProcessingFull ? <Icons.Spinner /> : <Icons.Download />} <span className="ml-2">{isProcessingFull ? 'Processing Full File...' : 'Download'}</span>
+                        {isProcessingFull ? <Icons.Spinner /> : <Icons.Download />} <span className="ml-2">{isProcessingFull ? 'Processing...' : 'Download'}</span>
                      </Button>
                      <label className="cursor-pointer inline-flex items-center justify-center rounded-md text-sm font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring h-9 px-4 py-2 bg-secondary text-white hover:bg-slate-700">
                         <Icons.Upload /> <span className="ml-2">Upload CSV</span>

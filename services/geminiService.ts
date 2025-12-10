@@ -1,3 +1,4 @@
+
 import { GoogleGenAI, Type } from "@google/genai";
 import { DashboardData, ChartConfig } from "../types";
 
@@ -28,6 +29,11 @@ export const transformCsvData = async (
     1. Generate Python Pandas code to perform this transformation on the DataFrame 'df'.
     2. Simulate the execution of this code on the provided preview data.
     3. Return the resulting CSV content for the preview.
+    
+    CRITICAL RULES:
+    - The DataFrame 'df' is ALREADY loaded. Do NOT write 'pd.read_csv'.
+    - Do NOT import pandas or io.
+    - Only write the code to manipulate 'df'.
     
     Output Format: JSON
     {
@@ -61,47 +67,6 @@ export const transformCsvData = async (
     console.error("Gemini Transformation Error:", error);
     throw error;
   }
-};
-
-// NEW FUNCTION: Applies the generated code to the FULL dataset
-export const applyTransformationToFullData = async (
-    fullCsvContent: string,
-    pythonCode: string
-): Promise<string> => {
-    
-    // Warn: If file is massive (>1MB), this might hit output token limits of the LLM.
-    // In a real app, this would run on a Python backend.
-    
-    const prompt = `
-    You are a Code Execution Engine.
-    
-    Input CSV Data (Full Dataset):
-    ${fullCsvContent}
-
-    Python Code to Apply:
-    ${pythonCode}
-
-    Task:
-    1. Act as a Python interpreter.
-    2. Apply the provided Python code to the Input CSV Data.
-    3. Output ONLY the resulting CSV string. Do not output JSON. Do not output markdown. Just the raw CSV text.
-    `;
-
-    try {
-        const response = await ai.models.generateContent({
-            model: MODEL,
-            contents: prompt,
-            config: {
-                // We do NOT use JSON schema here because we want raw CSV output which might be large
-                // and strictly text.
-            }
-        });
-
-        return cleanOutput(response.text || "");
-    } catch (error) {
-        console.error("Full Transformation Error:", error);
-        throw error;
-    }
 };
 
 export const chatWithData = async (
