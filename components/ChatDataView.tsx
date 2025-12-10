@@ -83,7 +83,7 @@ const ChatDataView: React.FC<ChatDataViewProps> = ({ projectId }) => {
                                 {msg.role === 'user' ? <span className="text-xs font-bold">U</span> : <Icons.Bot />}
                             </div>
                             <div className={`space-y-2 ${msg.role === 'user' ? 'text-right' : 'text-left'}`}>
-                                <Card className={`p-4 ${msg.role === 'user' ? 'bg-accent text-white border-accent' : 'bg-white'}`}>
+                                <Card className={`p-4 ${msg.role === 'user' ? 'bg-accent text-black border-accent' : 'bg-white'}`}>
                                     <p className="text-sm leading-relaxed whitespace-pre-wrap">{msg.content}</p>
                                 </Card>
                                 {msg.codeSnippet && (
