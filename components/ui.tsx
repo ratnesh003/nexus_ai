@@ -47,6 +47,15 @@ export const Input: React.FC<React.InputHTMLAttributes<HTMLInputElement>> = ({ c
     );
 };
 
+export const Textarea: React.FC<React.TextareaHTMLAttributes<HTMLTextAreaElement>> = ({ className = '', ...props }) => {
+    return (
+        <textarea
+            className={`flex min-h-[80px] w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:cursor-not-allowed disabled:opacity-50 ${className}`}
+            {...props}
+        />
+    );
+};
+
 export const Card: React.FC<{ children: React.ReactNode; className?: string }> = ({ children, className = '' }) => (
     <div className={`rounded-lg border border-border bg-white shadow-sm ${className}`}>{children}</div>
 );

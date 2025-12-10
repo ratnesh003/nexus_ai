@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { db } from '../services/mockDb';
 import { Project } from '../types';
-import { Button, Input, Card, Icons } from './ui';
+import { Button, Input, Textarea, Card, Icons } from './ui';
 
 const ProjectList: React.FC = () => {
     const [projects, setProjects] = useState<Project[]>([]);
@@ -88,7 +88,12 @@ const ProjectList: React.FC = () => {
                         </div>
                         <div className="space-y-2">
                             <label className="text-sm font-medium">Description</label>
-                            <Input value={newProjectDesc} onChange={(e) => setNewProjectDesc(e.target.value)} placeholder="Brief description..." />
+                            <Textarea 
+                                value={newProjectDesc} 
+                                onChange={(e) => setNewProjectDesc(e.target.value)} 
+                                placeholder="Brief description..."
+                                className="max-h-[220px] overflow-y-auto resize-y"
+                            />
                         </div>
                         <div className="flex justify-end gap-2 pt-4">
                             <Button variant="ghost" onClick={() => setIsCreateOpen(false)}>Cancel</Button>
@@ -109,7 +114,12 @@ const ProjectList: React.FC = () => {
                         </div>
                         <div className="space-y-2">
                             <label className="text-sm font-medium">Description</label>
-                            <Input value={editDesc} onChange={(e) => setEditDesc(e.target.value)} placeholder="Project Description" />
+                            <Textarea 
+                                value={editDesc} 
+                                onChange={(e) => setEditDesc(e.target.value)} 
+                                placeholder="Project Description"
+                                className="max-h-[220px] overflow-y-auto resize-y"
+                            />
                         </div>
                         <div className="flex justify-end gap-2 pt-4">
                             <Button variant="ghost" onClick={() => setEditingProject(null)}>Cancel</Button>
