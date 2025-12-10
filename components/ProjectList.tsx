@@ -66,7 +66,7 @@ const ProjectList: React.FC = () => {
     if (loading) return <div className="flex h-full items-center justify-center"><Icons.Spinner /></div>;
 
     return (
-        <div className="p-8 max-w-7xl">
+        <div className="p-8 max-w-7xl mx-auto">
             <div className="flex justify-between items-center mb-8">
                 <div>
                     <h1 className="text-3xl font-bold tracking-tight text-primary">Projects</h1>
@@ -151,7 +151,7 @@ const ProjectList: React.FC = () => {
                 ))}
                 
                 {projects.length === 0 && (
-                    <div className="col-span-full text-center border-2 border-dashed border-slate-200 rounded-xl text-slate-400 bg-slate-50/50 flex flex-col items-center justify-center  mx-auto px-16 py-8">
+                    <div className="col-span-full text-center py-16 border-2 border-dashed border-slate-200 rounded-xl text-slate-400 bg-slate-50/50 flex flex-col items-center justify-center">
                         <div className="h-12 w-12 bg-slate-100 rounded-full flex items-center justify-center mb-4">
                             <Icons.Plus />
                         </div>

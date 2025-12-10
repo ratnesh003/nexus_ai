@@ -76,7 +76,7 @@ const LandingPage: React.FC = () => {
                     </div>
                     <div className="flex gap-4">
                         <Button variant="ghost" className="text-slate-300 hover:text-white hover:bg-white/5" onClick={() => navigate('/login')}>Sign In</Button>
-                        <Button className="bg-blue-600 hover:bg-blue-700 text-white border-0" onClick={() => navigate('/register')}>Get Started</Button>
+                        <Button className="bg-blue-600 hover:bg-blue-500 text-white border-0" onClick={() => navigate('/register')}>Get Started</Button>
                     </div>
                 </div>
             </nav>
@@ -350,7 +350,7 @@ const LandingPage: React.FC = () => {
                         <div className="relative z-10 space-y-6">
                             <h2 className="text-3xl font-bold text-white">Ready to unlock your data's potential?</h2>
                             <p className="text-blue-100 text-lg">Join thousands of users making smarter decisions with DataNexus AI.</p>
-                            <Button className="h-12 px-8 text-lg bg-blue-600 text-white hover:bg-blue-700" onClick={() => navigate('/register')}>
+                            <Button className="h-12 px-8 text-lg bg-white text-blue-900 hover:bg-blue-50" onClick={() => navigate('/register')}>
                                 Get Started for Free
                             </Button>
                         </div>
