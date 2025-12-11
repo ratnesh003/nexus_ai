@@ -1,6 +1,8 @@
+
 import React, { useState, useEffect, useRef } from 'react';
 import { db } from '../services/mockDb';
 import { chatWithData } from '../services/geminiService';
+import { runPythonAnalysis } from '../services/pyodideService';
 import { ChatMessage, DataFile, Project } from '../types';
 import { Button, Input, Card, Icons, CodeBlock } from './ui';
 
@@ -47,13 +49,28 @@ const ChatDataView: React.FC<ChatDataViewProps> = ({ projectId }) => {
 
         try {
             const history = messages.map(m => ({ role: m.role, content: m.content }));
+            
+            // 1. Get Code from Gemini
             const response = await chatWithData(activeFile.content, history, userMsg.content);
             
+            let executionResult = undefined;
+            
+            // 2. Execute Code locally on FULL data if python code exists
+            if (response.pythonCode && response.pythonCode.trim() !== '') {
+                try {
+                    // This runs the python code in the browser using the full CSV content
+                    executionResult = await runPythonAnalysis(activeFile.content, response.pythonCode);
+                } catch (e) {
+                    executionResult = "Error executing analysis code: " + e;
+                }
+            }
+
             const botMsg: ChatMessage = {
                 id: (Date.now() + 1).toString(),
                 role: 'assistant',
                 content: response.answer,
                 codeSnippet: response.pythonCode,
+                executionResult: executionResult, // Store the actual output
                 timestamp: new Date().toISOString()
             };
             setMessages(prev => [...prev, botMsg]);
@@ -82,14 +99,27 @@ const ChatDataView: React.FC<ChatDataViewProps> = ({ projectId }) => {
                             <div className={`h-8 w-8 rounded-full flex items-center justify-center shrink-0 ${msg.role === 'user' ? 'bg-accent text-white' : 'bg-green-600 text-white'}`}>
                                 {msg.role === 'user' ? <span className="text-xs font-bold">U</span> : <Icons.Bot />}
                             </div>
-                            <div className={`space-y-2 ${msg.role === 'user' ? 'text-right' : 'text-left'}`}>
+                            <div className={`space-y-2 ${msg.role === 'user' ? 'text-right' : 'text-left'} w-full`}>
                                 <Card className={`p-4 ${msg.role === 'user' ? 'bg-accent text-black border-accent' : 'bg-white'}`}>
                                     <p className="text-sm leading-relaxed whitespace-pre-wrap">{msg.content}</p>
                                 </Card>
+                                
                                 {msg.codeSnippet && (
                                     <div className="w-full text-left">
                                         <div className="text-xs text-slate-500 mb-1 ml-1">Analysis Logic:</div>
                                         <CodeBlock code={msg.codeSnippet} />
+                                    </div>
+                                )}
+
+                                {/* Display Execution Results */}
+                                {msg.executionResult && (
+                                    <div className="w-full text-left animate-fade-in-up">
+                                         <div className="text-xs text-slate-500 mb-1 ml-1 flex items-center gap-1">
+                                            <Icons.Check /> Result from Full Dataset:
+                                         </div>
+                                         <div className="bg-slate-100 border border-slate-200 rounded-md p-3 font-mono text-sm text-slate-800 whitespace-pre-wrap max-h-60 overflow-y-auto shadow-sm">
+                                            {msg.executionResult}
+                                         </div>
                                     </div>
                                 )}
                             </div>

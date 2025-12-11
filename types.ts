@@ -36,6 +36,7 @@ export interface ChatMessage {
   role: 'user' | 'assistant';
   content: string;
   codeSnippet?: string;
+  executionResult?: string; // Output from running the code on full data
   timestamp: string;
 }
 

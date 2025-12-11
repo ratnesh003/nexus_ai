@@ -77,15 +77,20 @@ export const chatWithData = async (
     
     const context = `
     You are a Data Scientist Assistant.
-    Current CSV Data Context:
+    Current CSV Data Context (Preview ONLY - The actual execution runs on the full dataset):
     ${csvContent.substring(0, 5000)}...
 
     Task: Answer the user's question about the data.
-    Provide a Python Pandas snippet that WOULD solve this query, followed by the plain text answer.
+    1. Provide a Python Pandas snippet that calculates the answer on the variable 'df'.
+    2. IMPORTANT: The python code MUST print() the final result so the user can see it.
+    3. Provide a natural language explanation of what you are doing.
+    
+    NOTE: The 'df' variable contains the COMPLETE dataset, not just the preview above.
+    Do not import pandas. Assume 'df' is available.
     
     Output Format: JSON
     {
-        "answer": "Natural language answer...",
+        "answer": "Natural language answer/explanation...",
         "pythonCode": "pandas code snippet..."
     }
     `;
