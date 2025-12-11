@@ -1,9 +1,64 @@
+
 import { Project, DataFile, User, AppConfig, DashboardData } from '../types';
 
 // STORAGE KEYS
 const STORAGE_KEY_PROJECTS = 'datanexus_projects';
 const STORAGE_KEY_USER = 'datanexus_user';
 const STORAGE_KEY_CONFIG = 'datanexus_config';
+
+// --- INDEXEDDB HELPERS for Offline Large File Storage ---
+const IDB_NAME = 'DataNexusDB';
+const IDB_VERSION = 1;
+const STORE_FILES = 'files';
+
+const openDB = (): Promise<IDBDatabase> => {
+    return new Promise((resolve, reject) => {
+        if (!window.indexedDB) {
+            reject(new Error("IndexedDB not supported"));
+            return;
+        }
+        const request = window.indexedDB.open(IDB_NAME, IDB_VERSION);
+        request.onupgradeneeded = (event) => {
+            const db = (event.target as IDBOpenDBRequest).result;
+            if (!db.objectStoreNames.contains(STORE_FILES)) {
+                db.createObjectStore(STORE_FILES, { keyPath: 'id' });
+            }
+        };
+        request.onsuccess = () => resolve(request.result);
+        request.onerror = () => reject(request.error);
+    });
+};
+
+const saveFileToIDB = async (id: string, content: string, versions: any[]) => {
+    try {
+        const db = await openDB();
+        return new Promise<void>((resolve, reject) => {
+            const tx = db.transaction(STORE_FILES, 'readwrite');
+            const store = tx.objectStore(STORE_FILES);
+            const request = store.put({ id, content, versions });
+            request.onsuccess = () => resolve();
+            request.onerror = () => reject(request.error);
+        });
+    } catch (e) {
+        console.warn("IndexedDB Save Error", e);
+    }
+};
+
+const getFileFromIDB = async (id: string): Promise<{ content: string; versions: any[] } | undefined> => {
+    try {
+        const db = await openDB();
+        return new Promise((resolve, reject) => {
+            const tx = db.transaction(STORE_FILES, 'readonly');
+            const store = tx.objectStore(STORE_FILES);
+            const request = store.get(id);
+            request.onsuccess = () => resolve(request.result);
+            request.onerror = () => reject(request.error);
+        });
+    } catch (e) {
+        console.warn("IndexedDB Read Error", e);
+        return undefined;
+    }
+};
 
 class DatabaseService {
   private projects: Project[];
@@ -32,7 +87,47 @@ class DatabaseService {
       return this.config;
   }
 
-  // --- Auth (Mock for Client, but structure ready for Better Auth) ---
+  // --- Persistence Helper ---
+  // Save lightweight metadata to LocalStorage and heavy content to IndexedDB
+  private async persistLocal() {
+      // 1. Prepare projects for LocalStorage (strip heavy content)
+      const lightweightProjects = this.projects.map(p => ({
+          ...p,
+          files: p.files.map(f => {
+              // If it's a Cloudinary file, we keep the content (it's just a URL)
+              // If it's local, we strip it to save space in LS
+              if (f.storageType === 'cloudinary') return f;
+              
+              return {
+                  ...f,
+                  content: '', // Stripped
+                  versions: f.versions.map(v => ({ ...v, content: '' })) // Stripped
+              };
+          })
+      }));
+
+      // 2. Save heavy content to IndexedDB for all local files
+      const savePromises = [];
+      for (const p of this.projects) {
+          for (const f of p.files) {
+              if (f.storageType === 'local') {
+                  savePromises.push(saveFileToIDB(f.id, f.content, f.versions));
+              }
+          }
+      }
+      
+      await Promise.all(savePromises);
+
+      // 3. Save metadata to LocalStorage
+      try {
+          localStorage.setItem(STORAGE_KEY_PROJECTS, JSON.stringify(lightweightProjects));
+      } catch (e) {
+          console.error("LocalStorage Quota Exceeded even with IDB offloading", e);
+          alert("Storage full. Please delete some projects.");
+      }
+  }
+
+  // --- Auth ---
   getUser(): User | null {
     return this.user;
   }
@@ -42,8 +137,12 @@ class DatabaseService {
       id: `u-${Date.now()}`,
       name: name || email.split('@')[0],
       email: email,
-      avatar: `https://api.dicebear.com/7.x/avataaars/svg?seed=${name}`
+      avatar: `https://api.dicebear.com/7.x/avataaars/svg?seed=${name}` // Using generic avatar logic
     };
+    // Fix for CSP/broken avatar: Use a local SVG data URI if needed, but keeping simple for now
+    // Actually, let's use a generated initial avatar to be safe
+    user.avatar = `data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Crect width='100' height='100' fill='%233b82f6'/%3E%3Ctext x='50' y='65' font-size='50' fill='white' text-anchor='middle' font-family='sans-serif'%3E${name.charAt(0).toUpperCase()}%3C/text%3E%3C/svg%3E`;
+
     this.user = user;
     localStorage.setItem(STORAGE_KEY_USER, JSON.stringify(this.user));
     return user;
@@ -58,7 +157,6 @@ class DatabaseService {
 
   async getProjects(): Promise<Project[]> {
     if (this.config.useRealBackend && this.config.mongoDbApiKey) {
-        // MongoDB Data API Implementation
         try {
             const response = await fetch(`${this.config.mongoDbUrl}/action/find`, {
                 method: 'POST',
@@ -77,9 +175,10 @@ class DatabaseService {
             return data.documents || [];
         } catch (e) {
             console.error("MongoDB Fetch Error", e);
-            return this.projects; // Fallback
+            return this.projects; // Fallback to local
         }
     }
+    // For local listing, the lightweight version in memory is sufficient (names/descriptions are there)
     return this.projects;
   }
 
@@ -103,10 +202,29 @@ class DatabaseService {
             return data.document;
         } catch (e) {
             console.error("MongoDB Fetch One Error", e);
-            return this.projects.find(p => p.id === id);
+            // Fallback to local
         }
     }
-    return this.projects.find(p => p.id === id);
+
+    // LOCAL MODE: Rehydrate from IndexedDB if needed
+    const project = this.projects.find(p => p.id === id);
+    if (!project) return undefined;
+
+    // We must ensure files have their content loaded
+    const hydratedFiles = await Promise.all(project.files.map(async (f) => {
+        if (f.storageType === 'local' && (!f.content || f.content === '')) {
+            // Content missing in memory/LS, fetch from IDB
+            const idbData = await getFileFromIDB(f.id);
+            if (idbData) {
+                return { ...f, content: idbData.content, versions: idbData.versions };
+            }
+        }
+        return f;
+    }));
+
+    // Update memory cache with hydrated files so subsequent calls are fast
+    project.files = hydratedFiles;
+    return project;
   }
 
   async createProject(name: string, description: string): Promise<Project> {
@@ -136,7 +254,7 @@ class DatabaseService {
     }
 
     this.projects = [newProject, ...this.projects];
-    localStorage.setItem(STORAGE_KEY_PROJECTS, JSON.stringify(this.projects));
+    await this.persistLocal();
     return newProject;
   }
 
@@ -165,9 +283,11 @@ class DatabaseService {
         });
     }
 
+    // Update Local Cache
     const idx = this.projects.findIndex(p => p.id === id);
     if (idx !== -1) this.projects[idx] = project;
-    localStorage.setItem(STORAGE_KEY_PROJECTS, JSON.stringify(this.projects));
+    
+    await this.persistLocal();
   }
 
   async deleteProject(id: string): Promise<void> {
@@ -186,8 +306,11 @@ class DatabaseService {
             })
         });
     }
+    
+    // Cleanup IndexedDB files (Optional but good practice)
+    // For simplicity, we just remove from the list here
     this.projects = this.projects.filter(p => p.id !== id);
-    localStorage.setItem(STORAGE_KEY_PROJECTS, JSON.stringify(this.projects));
+    await this.persistLocal();
   }
 
   async saveDashboardData(projectId: string, dashboardData: DashboardData): Promise<void> {
@@ -216,7 +339,7 @@ class DatabaseService {
 
       const idx = this.projects.findIndex(p => p.id === projectId);
       if (idx !== -1) this.projects[idx] = project;
-      localStorage.setItem(STORAGE_KEY_PROJECTS, JSON.stringify(this.projects));
+      await this.persistLocal();
   }
 
   // --- Files & Cloudinary ---
@@ -240,15 +363,12 @@ class DatabaseService {
             const data = await res.json();
             content = data.secure_url; // Store URL
             storageType = 'cloudinary';
-            
-            // For processing immediately, we still need the text content
-            // We can fetch it back or read the file locally for the initial version
         } catch (e) {
             console.error("Cloudinary Upload Error", e);
             throw new Error("Cloudinary Upload Failed");
         }
     } else {
-        // Local Fallback
+        // Local File Reader
         content = await new Promise((resolve) => {
             const reader = new FileReader();
             reader.onload = (e) => resolve(e.target?.result as string);
@@ -256,7 +376,7 @@ class DatabaseService {
         });
     }
 
-    // If we uploaded to Cloudinary, we need the raw text for the initial version to show in UI
+    // Read initial content for memory/display purposes even if hosted on Cloudinary
     const initialTextContent = storageType === 'cloudinary' 
         ? await new Promise<string>((resolve) => {
             const reader = new FileReader();
@@ -268,8 +388,8 @@ class DatabaseService {
     const newFile: DataFile = {
         id: `f${Date.now()}`,
         name: file.name,
-        content: initialTextContent, // We store the TEXT content in memory for the app to use
-        storageType: 'local', // For simplicity in this demo, we treat active working copy as local
+        content: initialTextContent,
+        storageType: storageType, 
         versions: [{
             id: `v${Date.now()}`,
             timestamp: new Date().toISOString(),
@@ -303,10 +423,12 @@ class DatabaseService {
             });
         }
         
-        // Update Local State mirror
+        // Update Local State (Hybrid Persistence)
         const idx = this.projects.findIndex(p => p.id === projectId);
         if (idx !== -1) this.projects[idx] = project;
-        localStorage.setItem(STORAGE_KEY_PROJECTS, JSON.stringify(this.projects));
+        
+        // This will save to IndexedDB if local, preventing quota issues
+        await this.persistLocal();
     }
 
     return newFile;
@@ -348,10 +470,10 @@ class DatabaseService {
        });
    }
    
-   // Update Local Mirror
+   // Update Local State
    const idx = this.projects.findIndex(p => p.id === projectId);
    if (idx !== -1) this.projects[idx] = project;
-   localStorage.setItem(STORAGE_KEY_PROJECTS, JSON.stringify(this.projects));
+   await this.persistLocal();
   }
 }
 
