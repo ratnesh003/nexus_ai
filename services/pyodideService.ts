@@ -12,7 +12,7 @@ const getWorker = () => {
   if (pyodideWorker) return pyodideWorker;
 
   console.log("Initializing Pyodide Worker...");
-  pyodideWorker = new Worker(new URL('./pyodideWorker.ts', import.meta.url), { type: 'module' });
+  pyodideWorker = new Worker(new URL('./pyodideWorker.ts', import.meta.url));
 
   pyodideWorker.onmessage = (event) => {
     const { id, result, error } = event.data;

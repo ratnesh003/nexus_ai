@@ -3,13 +3,14 @@
 // This worker handles Pyodide execution to keep the main thread responsive.
 
 // @ts-ignore
-import { loadPyodide } from "https://cdn.jsdelivr.net/pyodide/v0.25.0/full/pyodide.mjs";
+importScripts("https://cdn.jsdelivr.net/pyodide/v0.25.0/full/pyodide.js");
 
 let pyodide: any = null;
 
 async function init() {
   if (pyodide) return pyodide;
   
+  // @ts-ignore
   pyodide = await loadPyodide({
     indexURL: "https://cdn.jsdelivr.net/pyodide/v0.25.0/full/"
   });
