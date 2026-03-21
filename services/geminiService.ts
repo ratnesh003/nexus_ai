@@ -2,7 +2,6 @@
 import { GoogleGenAI, Type } from "@google/genai";
 import { DashboardData, ChartConfig } from "../types";
 
-const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
 const MODEL = "gemini-2.5-flash";
 
 // Helper to clean CSV string (sometimes LLMs add markdown blocks)
@@ -10,11 +9,19 @@ const cleanOutput = (text: string) => {
   return text.replace(/```csv/g, '').replace(/```python/g, '').replace(/```json/g, '').replace(/```/g, '').trim();
 };
 
+const getAi = () => {
+  const apiKey = process.env.GEMINI_API_KEY;
+  if (!apiKey) {
+    throw new Error("GEMINI_API_KEY is not set in the environment.");
+  }
+  return new GoogleGenAI({ apiKey });
+};
+
 export const transformCsvData = async (
   csvContent: string, 
   userPrompt: string
 ): Promise<{ newCsv: string; pythonCode: string }> => {
-  
+  const ai = getAi();
   // Truncate for the PREVIEW phase to ensure speed
   const previewContent = csvContent.substring(0, 5000); 
 
@@ -74,7 +81,7 @@ export const chatWithData = async (
     history: { role: string; content: string }[],
     userMessage: string
 ): Promise<{ answer: string; pythonCode: string }> => {
-    
+    const ai = getAi();
     const context = `
     You are a Data Scientist Assistant.
     Current CSV Data Context (Preview ONLY - The actual execution runs on the full dataset):
@@ -128,6 +135,7 @@ export const chatWithData = async (
 };
 
 export const generateDashboardData = async (csvContent: string): Promise<DashboardData> => {
+    const ai = getAi();
     const prompt = `
     You are a Data Visualization Expert.
     Analyze the following CSV data and generate a JSON configuration for a dashboard.

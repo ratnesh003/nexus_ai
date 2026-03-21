@@ -45,8 +45,23 @@ const TransformationView: React.FC<TransformationViewProps> = ({ projectId, file
 
     const parseCsv = (content: string) => {
         const lines = content.trim().split('\n');
-        // Handle basic CSV parsing, including quoted fields if possible, but basic split for now
-        const rows = lines.map(line => line.split(',')); 
+        if (lines.length === 0) return;
+
+        // Simple delimiter detection: check first line for common delimiters
+        const firstLine = lines[0];
+        const delimiters = [',', ';', '\t'];
+        let bestDelimiter = ',';
+        let maxCols = 0;
+
+        delimiters.forEach(d => {
+            const cols = firstLine.split(d).length;
+            if (cols > maxCols) {
+                maxCols = cols;
+                bestDelimiter = d;
+            }
+        });
+
+        const rows = lines.map(line => line.split(bestDelimiter)); 
         setCsvRows(rows.slice(0, 100)); // Limit for performance in preview
     };
 
