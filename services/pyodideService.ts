@@ -1,116 +1,127 @@
-// pyodideService.ts
-const worker = new Worker(
-  new URL("./pyodide.worker.ts", import.meta.url),
-  { type: "classic" } // 👈 must match — classic workers use importScripts
-);
 
-let isReady = false;
-let readyPromise: Promise<void> | null = null;
+declare global {
+  interface Window {
+    loadPyodide: (config: any) => Promise<any>;
+  }
+}
 
-// Initialize Pyodide via Worker
-export const initPyodide = (): Promise<void> => {
-  if (isReady) return Promise.resolve();
-  if (readyPromise) return readyPromise;
+let pyodideInstance: any = null;
 
-  readyPromise = new Promise<void>((resolve, reject) => {
-    worker.postMessage({ type: "init" });
-    worker.onmessage = (e) => {
-      if (e.data.type === "ready") {
-        isReady = true;
-        resolve();
-      } else if (e.data.type === "error") {
-        reject(new Error(e.data.error));
-      }
-    };
+// Initialize Pyodide and load Pandas
+export const initPyodide = async () => {
+  if (pyodideInstance) return pyodideInstance;
+
+  console.log("Initializing Pyodide...");
+  if (!window.loadPyodide) {
+    throw new Error("Pyodide script not loaded in index.html");
+  }
+
+  pyodideInstance = await window.loadPyodide({
+    indexURL: "https://cdn.jsdelivr.net/pyodide/v0.25.0/full/"
   });
 
-  return readyPromise;
+  console.log("Loading Pandas...");
+  await pyodideInstance.loadPackage("pandas");
+  console.log("Pyodide Ready.");
+  return pyodideInstance;
 };
 
-// Helper: Send a job to the worker and wait for the response
-const runInWorker = (
-  type: "transform" | "analyze",
-  csvContent: string,
-  pythonCode: string
-): Promise<string> => {
-  return new Promise((resolve, reject) => {
-    worker.onmessage = (e) => {
-      if (e.data.type === "result") resolve(e.data.result);
-      else if (e.data.type === "error") reject(new Error(e.data.error));
-    };
-    worker.postMessage({ type, csvContent, pythonCode });
-  });
-};
-
-// Execute the transformation (Returns CSV)
+// Execute the transformation locally (Returns CSV)
 export const runPythonTransformation = async (
   csvContent: string,
   pythonCode: string
 ): Promise<string> => {
-  await initPyodide();
+  const py = await initPyodide();
 
-  const setupScript = `
+  try {
+    // 1. Pass the CSV content to Python
+    py.globals.set("csv_raw_content", csvContent);
+
+    // 2. Setup script: Import pandas, read CSV into 'df'
+    const setupScript = `
 import pandas as pd
 import io
 
+# Read CSV string into DataFrame
 df = pd.read_csv(io.StringIO(csv_raw_content))
 csv_data = csv_raw_content
 `;
+    await py.runPythonAsync(setupScript);
 
-  const resultScript = `
+    // 3. Run the user's generated transformation code
+    await py.runPythonAsync(pythonCode);
+
+    // 4. Extract result: Convert 'df' back to CSV string
+    const resultScript = `
 df.to_csv(index=False)
 `;
+    const resultCsv = await py.runPythonAsync(resultScript);
+    
+    return resultCsv;
 
-  const fullCode = setupScript + "\n" + pythonCode + "\n" + resultScript;
-
-  try {
-    return await runInWorker("transform", csvContent, fullCode);
   } catch (error) {
-    throw new Error("Failed to execute Python code: " + String(error));
+    console.error("Pyodide Execution Error:", error);
+    throw new Error("Failed to execute Python code locally: " + String(error));
   }
 };
 
-// Execute analysis code (Returns captured print output)
+// Execute analysis code locally (Returns captured Output/Print)
 export const runPythonAnalysis = async (
   csvContent: string,
   pythonCode: string
 ): Promise<string> => {
-  await initPyodide();
+  const py = await initPyodide();
 
-  const fullCode = `
+  try {
+    py.globals.set("csv_raw_content", csvContent);
+
+    // Setup: Redirect stdout to capture print() statements AND set display options
+    const setupScript = `
 import pandas as pd
 import io
 import sys
 
+# Configure Pandas to show more data (prevent truncation)
 pd.set_option('display.max_rows', 100)
 pd.set_option('display.max_columns', 50)
 pd.set_option('display.width', 1000)
 pd.set_option('display.max_colwidth', 100)
 
+# Create a class to capture stdout
 class CatchOut:
     def __init__(self):
         self.value = ''
     def write(self, txt):
         self.value += txt
-    def flush(self):
-        pass
 
+# Save original stdout
 old_stdout = sys.stdout
+# Redirect stdout
 sys.stdout = catch_out = CatchOut()
 
+# Load Data
 df = pd.read_csv(io.StringIO(csv_raw_content))
 csv_data = csv_raw_content
+`;
+    await py.runPythonAsync(setupScript);
 
-${pythonCode}
+    // Run the analysis code
+    await py.runPythonAsync(pythonCode);
 
-sys.stdout = old_stdout
+    // Retrieve the captured output
+    const getOutputScript = `
+sys.stdout = old_stdout # Restore stdout
 catch_out.value
 `;
+    const output = await py.runPythonAsync(getOutputScript);
 
-  try {
-    const output = await runInWorker("analyze", csvContent, fullCode);
     return output || "Code executed successfully (No output printed).";
+
   } catch (error) {
+    // Attempt to restore stdout even if error
+    try { py.runPython("sys.stdout = old_stdout"); } catch(e){} 
+    
+    console.error("Pyodide Analysis Error:", error);
     return "Error executing code: " + String(error);
   }
 };
